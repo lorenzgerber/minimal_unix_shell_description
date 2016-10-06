@@ -87,6 +87,7 @@ loop over all but the last commands
             close pipe read_end
         if `in' != 0
             dup2 `in' to STDIN
+            close `in'
         dup2 pipe write_end to STDOUT
         close pipe write_end
         run command
@@ -123,6 +124,17 @@ Parent process code:
 
 
 \section{System Description}
+
+Figure \ref{fig:pipes} shows the sequence of commands for the piping
+setup, here with three commands, hence two pipes.
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{pipes.png}
+\caption{\textit{This figure shows the sequence of commands for the
+    piping setup, here with three commands, hence two pipes.}}
+\label{fig:pipes}
+\end{figure}
+
 
 
 

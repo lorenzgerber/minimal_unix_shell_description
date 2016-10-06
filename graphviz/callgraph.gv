@@ -1,0 +1,11 @@
+digraph CallGraph{
+main->parse;
+main->flagInternalCommands;
+main->isInternal;
+mysignal->sigCatcherINT;
+main->mysignal;
+main->processExternalCommands
+processExternalCommands->dupPipe;
+processExternalCommands->redirect;
+processExternalCommands->mysignal;
+}
