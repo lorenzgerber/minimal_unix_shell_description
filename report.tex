@@ -63,15 +63,16 @@
 \pagenumbering{arabic}
 
 \section{Problem Description} 
-The aim of this laboration was to develop a minimal unix shell. The shell had to implement input and output stream redirection, stream piping between commands, and two internal commands, `cd' and `echo'. The main techniques to be used for implementing the shell were `pipes', `forking' and execution of programs by the `exec' function family. Further, the interrupt signal (SIGINT) had to be reassigned to a function that allows to stop all child processes and then returns control back to the shell prompt.
+The aim of this laboration was to develop a minimal unix shell. The shell had to implement input and output stream redirection, stream piping between commands and two internal commands, `cd' and `echo'. The main techniques to be used for implementing the shell were `pipes', `forking' and execution of programs by the `exec' function family. Further, the interrupt signal (SIGINT) had to be reassigned to a function that allows to stop all child processes and then returns control back to the shell prompt. A function for parsing the shell input was provided. 
 
 \section{Compilation and Invocation}
-The present code uses safe signaling by `sigaction' which requires on linux to compile with std=gnu11 instead of ANSI C standard. On OSX, the code built also when using std=c11, hence the gcc included in linux seems to have a more stringent interpretation of `c11' standard (`sigaction' is POSIX, not ANSI C). A makefile is provided that takes care of building and linking the source by invoking `make all'. A `make clean' script is also included. 
+A makefile is provided for compiling the code: `make all'. It was tested on clang 800.0.38 (OSX 10.11.6), gcc 4.9.2 (Debian) and gcc 5.4.0 (Ubuntu). Some issues where encountered regarding functionality defined in the POSIX standard. A \#define was required in the files that contain the respective functions. Another solution would have been to compile with the -std=gnu11 flag. Makefile also provides a function for cleaning up: `make clean'.
 
 \section{Detailed Usage Description}
-`mish' does not take any command line argument. The shell can be quit by sending EOF to the prompt (Ctrl-D). SIGINT (Ctrl-C) is ignored in the prompt main loop and assigned to a custom function during exectution of external commands. The custom implementation stops all started child processes and returns back to the command prompt. 
+`mish' does not take any command line argument. The shell can be aborted by sending EOF to the prompt (Ctrl-D). SIGINT (Ctrl-C) is ignored in the prompt main loop and assigned to a custom function during execution of external commands. The custom implementation stops all started child processes and returns back to the command prompt. Child pid's are stored in a global integer arrray. 
 
 \section{Algorithm Description}
+Below follows a description of the function that executes external commands and takes care of piping and redirection. Here, it was chosen to implement a solution where pipes are created one by one while iterating over the commands to be piped. Another solution would have been to create all pipes in advance and then just spawn processes one by one while solving the pipe routing. The current implementation always keeps the stream end for the next command 'remembered' in the parent process. On the second last command, the iteration over commands is abondend and as the last command does not need another pipe. 
 
 
 \begin{verbatim}
@@ -85,17 +86,16 @@ loop over all but the last commands
             setup redirect
         else
             close pipe read_end
-        if `in' != 0
-            dup2 `in' to STDIN
-            close `in'
-        dup2 pipe write_end to STDOUT
-        close pipe write_end
+        if there is a remembered file descriptor from the last iteration 
+            duplicate it to STDIN and close the remembered file descriptor
+        duplicate the pipes write end to STDOUT and close the pipes write end
         run command
 
     Parent process code:
-        if `in' != 0, close 'in'
-        set 'in' to pipe read_end 
-        close pipe write_end
+        if there is a remembered file descriptor from the last iteration,
+            close it.
+        remember the the read end of the pipe 
+        close the pipes write end
 
 spawn a child process for last command
 
@@ -116,17 +116,32 @@ Child process code:
 Parent process code:
     wait for child processes to report finished
     cleaning up
-
- 
-
-
 \end{verbatim}
 
 
 \section{System Description}
+\subsection{General structure}
+The general structure of the implementation is first documented by a call graph in figure \ref{fig:callgraph}. As it can be seen, a rather flat organization was chose where most commands are called directly by the main process.
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{callgraph.png}
+\caption{\textit{This figure shows the call graph of mish.}}
+\label{fig:callgraph}
+\end{figure}
 
-Figure \ref{fig:pipes} shows the sequence of commands for the piping
-setup, here with three commands, hence two pipes.
+
+\subsection{Piping and Redirection}
+
+The basic structure for starting commands in a shell is:
+\begin{enumerate}
+\item open a pipe to allow inter process communication
+\item fork a child processs
+\item execute command in child process
+\item monitor termination of the child process in the parent process
+\end{enumerate}
+
+Below follows a more detailed account for the chosen implementation of the piping and redirection functionality. Figure \ref{fig:pipes} exemplifies the sequence of commands for the piping setup with three commands, hence two pipes. 
+
 \begin{figure}
 \centering
 \includegraphics[width=\textwidth]{pipes.png}
@@ -137,20 +152,19 @@ setup, here with three commands, hence two pipes.
 
 
 
-
 \section{Known Limits}
-The program does not compile with the std=c11 or ansi flag set on Linux (tested on the standard gcc version shipped with ubuntu 16.04). However it does compile on OSX (clang-800.0.38).  
-
-\section{Results}
-
-\section{Discussion}
+Currently the number of command commands to be processed on one command line entry is set to 8. 
 
 \section{Testing}
 
+\subsection{Debugging}
+Debugging was found to be rather difficult with the child processes. Not all versions of GDB allow switching to the child process. The default GDB version available on my home setup (Ubuntu 16.04) didn't seem to react on the setting within GDB that should allow switching to the child process. Neither did it work on a custom installed GCC/GDB setup from Homebrew on a OSX 10.11.6. Hence the obvious available solution for some insight were trace printouts to stderr. 
+
 \subsection{Testing for closing of file descriptors}
+A number of trace print statements of active file descriptors was setup to monitor whether a long chain of piped commands does not result in the increase of lowest availble file descriptors value.
 
 \subsection{Testing for correct finishing of child processes}
-
+Process control using the `ps' command was used to monitor the correct termination of child processes. 
 
 \addcontentsline{toc}{section}{\refname}
 \bibliography{references}
