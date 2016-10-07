@@ -69,7 +69,8 @@ The aim of this laboration was to develop a minimal unix shell. The shell had to
 A makefile is provided for compiling the code: `make all'. It was tested on clang 800.0.38 (OSX 10.11.6), gcc 4.9.2 (Debian) and gcc 5.4.0 (Ubuntu). Some issues where encountered regarding functionality defined in the POSIX standard. A \#define was required in the files that contain the respective functions. Another solution would have been to compile with the -std=gnu11 flag. Makefile also provides a function for cleaning up: `make clean'.
 
 \section{Detailed Usage Description}
-`mish' does not take any command line argument. The shell can be aborted by sending EOF to the prompt (Ctrl-D). SIGINT (Ctrl-C) is ignored in the prompt main loop and assigned to a custom function during execution of external commands. The custom implementation stops all started child processes and returns back to the command prompt. Child pid's are stored in a global integer arrray. 
+`mish' does not take any command line argument. The shell can be aborted by sending EOF to the prompt (Ctrl-D). SIGINT (Ctrl-C) is ignored in the prompt main loop and assigned to a function that sends SIGINT to all child processes during execution of external commands.
+As specified, two internal commands, `cd' and `echo' are available. `cd' takes as argument the path, absolut or relative,  to change to. It uses internally the `chdir' function. The `echo' takes space separated strings and redirects them to STDOUT.
 
 \section{Algorithm Description}
 Below follows a description of the function that executes external commands and takes care of piping and redirection. Here, it was chosen to implement a solution where pipes are created one by one while iterating over the commands to be piped. Another solution would have been to create all pipes in advance and then just spawn processes one by one while solving the pipe routing. The current implementation always keeps the stream end for the next command 'remembered' in the parent process. On the second last command, the iteration over commands is abondend and as the last command does not need another pipe. 
@@ -150,6 +151,10 @@ Below follows a more detailed account for the chosen implementation of the pipin
 \label{fig:pipes}
 \end{figure}
 
+\subsection{Signal Handling}
+For reliable signal handling `sigaction', was implemented as function `mySignal'so that it could be used with the same call signature as `signal'. The new signal handler function for the SIGINT signal is deployed in the beginnin of the `processExternalCommands' call. It uses a global integer array that holds the pids of all started child processes and sends SIGINT by `kill' calls to each of them.
+
+In the prompt loop of the main program, a call to `mySignal' reassigns the SIGINT function to SIG_IGN, whic prevents the shell prompt to react on Ctrl-C from the user.  
 
 
 \section{Known Limits}
@@ -164,7 +169,7 @@ Debugging was found to be rather difficult with the child processes. Not all ver
 A number of trace print statements of active file descriptors was setup to monitor whether a long chain of piped commands does not result in the increase of lowest availble file descriptors value.
 
 \subsection{Testing for correct finishing of child processes}
-Process control using the `ps' command was used to monitor the correct termination of child processes. 
+The `ps' command was used to monitor the correct termination of child processes. 
 
 \addcontentsline{toc}{section}{\refname}
 \bibliography{references}
